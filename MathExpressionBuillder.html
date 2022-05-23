@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <h3>Примеры работы Mathjax</h3>
+    //Static
+    <div>
+        <span>\(x = {-b \pm \sqrt{b^2-4ac} \over 2a}\)</span>
+    </div>
+    //Dynamic
+    <div id="dynamic-pan"></div>
+
+
+    <h3>Программная генерация</h3>
+    <input type="text" oninput="onKeyPress(this);">
+
+    <p>Операционное дерево:</p>
+    <div id="MathTree"></div>
+
+    <p>Выражение Mathjax:</p>
+    <div id="RawMaxjax"></div>
+
+    <p>Скомпилированное выражение Mathjax:</p>
+    <div id="MathExample"></div>
+
+    <meta name="description" content="dynamic mathjax">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
+        </script>
+
+    <script>
+        const SPLIT_TO_TOKENS_PATTERN =
+            /\d+(?:[.]\d+)?|;|\+|-|\*|\/|\^|>=|>|<=|<|==|!=|&&|\|\||!|\(|\)|[A-z1-9_]+/g;
+
+        priorities = {
+            /*
+            '||': 1,
+            '&&': 2,
+            '==': 3,
+            '!=': 3,
+            '>': 4,
+            '>=': 4,
+            '<': 4,
+            '<=': 4,*/
+            '+': 5,
+            '-': 5,
+            '*': 6,
+            '/': 6,
+            sin: 7,
+            max: 7,
+            minus: 7,
+            sqrt: 7,
+            '^': 8,
+            ')': 9,
+            '(': 10,
+        };
+
+        function IsBiggerPriority(op1, op2) {
+            return priorities[op1] > priorities[op2];
+        }
+
+        function IsOperator(token) {
+            return token in priorities;
+        }
+
+        function IsBinaryOperator(token) {
+            return ['+', '-', '*', '/', '^'].includes(token);
+        }
+
+        class Node {
+            constructor(parent, tokens) {
+                this.parent = parent;
+                let lowestPriorityToken = null;
+                let lowestPriorityTokenIndex = -1;
+                let openingParenthesisCounter = 0;
+
+                for (let i = 0; i < tokens.length; i++) {
+                    if (tokens[i] === '(') {
+                        openingParenthesisCounter++;
+                    } else if (tokens[i] === ')') {
+                        openingParenthesisCounter--;
+                    }
+
+                    if (
+                        IsOperator(tokens[i]) &&
+                        (lowestPriorityTokenIndex === -1 ||
+                            (openingParenthesisCounter === 0 &&
+                                !IsBiggerPriority(tokens[i], lowestPriorityToken)))
+                    ) {
+                        lowestPriorityToken = tokens[i];
+                        lowestPriorityTokenIndex = i;
+                    }
+                }
+                if (lowestPriorityTokenIndex === -1) {
+                    this.operator = null;
+                    this.children = tokens[0];
+                    return;
+                }
+
+                this.children = [];
+                if (lowestPriorityToken === ')') {
+                    this.operator = '()';
+                    let argumentTokens = [];
+                    openingParenthesisCounter = 0;
+
+                    for (let i = 1; i < tokens.length - 1; i++) {
+                        if (tokens[i] === '(') openingParenthesisCounter++;
+                        else if (tokens[i] === ')') openingParenthesisCounter--;
+
+                        if (tokens[i] === ';' && openingParenthesisCounter === 0) {
+                            this.children.push(new Node(this, [argumentTokens]));
+                            argumentTokens = [];
+                        } else argumentTokens.push(tokens[i]);
+                    }
+                    this.children.push(new Node(this, argumentTokens));
+                    argumentTokens = [];
+                } else {
+                    this.operator = lowestPriorityToken;
+                    if (lowestPriorityTokenIndex > 0)
+                        this.children.push(
+                            new Node(this, tokens.slice(0, lowestPriorityTokenIndex))
+                        );
+                    if (lowestPriorityTokenIndex < tokens.length)
+                        this.children.push(
+                            new Node(this, tokens.slice(lowestPriorityTokenIndex + 1))
+                        );
+                }
+            }
+
+            toString() {
+                if (this.operator == null) return this.children;
+                else {
+                    let outputString =
+                        this.operator +
+                        '[' +
+                        this.children.map(x => x.toString()).join(',') +
+                        ']';
+                    return outputString;
+                }
+            }
+
+            print(depth = 0) {
+                let outputString = '';
+                if (this.operator === null) {
+                    outputString += '\n' + ('   '.repeat(depth) + this.children);
+                } else {
+                    outputString += '\n' + ('   '.repeat(depth) + this.operator + '[');
+                    for (let i = 0; i < this.children.length; i++)
+                        outputString += this.children[i].print(depth + 1);
+                    outputString += '\n' + ('   '.repeat(depth) + ']');
+                }
+                return outputString;
+            }
+
+            toMathjax() {
+                let outputString = '';
+                if (this.operator === null) {
+                    outputString = this.children;
+                }
+                else {
+                    if (this.operator === '()') {
+                        outputString += '\\left({';
+                        if (this.children.length > 0) {
+                            outputString += this.children[0].toMathjax();
+                            for (let i = 1; i < this.children.length; i++)
+                                outputString += ';' + this.children[i].toMathjax();
+                        }
+                        outputString += '}\\right)';
+                    } else if (this.operator === '/') {
+                        outputString += '\\frac {' +
+                            this.children[0].toMathjax() + '} {' +
+                            this.children[1].toMathjax() + '}';
+                    } else if (IsBinaryOperator(this.operator)) {
+                        outputString += '{' + this.children[0].toMathjax() + '}' +
+                            this.operator +
+                            '{' + this.children[1].toMathjax() + '}';
+                    } else {
+                        outputString += '\\' + this.operator +
+                            ' {' + this.children[0].toMathjax() + '}';
+                    }
+                }
+                return outputString;
+            }
+        }
+
+        // Вывод динамического примера
+        $(document).ready(function () {
+            var $el = $('#dynamic-pan')
+            $el.empty()
+            $el.append('<span>\\(x = {-b \\pm \\sqrt{b^2-4ac} \\over 2a}\\)</span>')
+            MathJax.Hub.Queue(['Typeset', MathJax.Hub, $el[0]]);
+        });
+
+
+        function onKeyPress(field) {
+            let inputString = field.value;
+            let tokens = [...inputString.matchAll(SPLIT_TO_TOKENS_PATTERN)].map(x => x[0]);
+            let n = new Node(null, tokens);
+
+            document.getElementById("MathTree").innerHTML = n.toString();
+
+            let math = document.getElementById("MathExample");
+            let mathjaxString = n.toMathjax();
+            document.getElementById("RawMaxjax").innerHTML = mathjaxString;
+            math.innerHTML = ''
+            math.append('\\(' + mathjaxString + '\\)')
+            //math.append('$$'+mathjaxString+'$$')
+            // Добавляет в очередь обработки MathJax выполнение функции Typeset() для обновления отображения формулы в компоненте math
+            MathJax.Hub.Queue(["Typeset", MathJax.Hub, math]);
+
+        }
+    </script>
+
+</body>
+
+</html>

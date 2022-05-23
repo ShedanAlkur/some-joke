@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegraph account page viewer</title>
+    <!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script> -->
+
+    <style>
+        .page-list {
+            padding: 0;
+            margin: 3px;
+        }
+
+        .page {
+            display: flex;
+            justify-content: space-between;
+            border: 2px solid;
+            border-radius: 4px;
+            padding: 3px;
+            margin: 2px;
+        }
+
+        @media (max-width: 479px) {
+            .page {
+                flex-wrap: wrap;
+            }
+        }
+
+        .page__info {
+            display: flex;
+            flex-direction: column;
+            /* background-color: aqua; */
+        }
+
+        .page__image {
+            max-height: 120px;
+            max-width: 200px;
+            margin: 3px;
+            object-fit: contain;
+            align-self: flex-end;
+        }
+
+        .page__header {
+            font-size: 1.15em;
+            font-weight: bolder;
+        }
+
+        .info__header {
+            font-weight: bold;
+        }
+
+        .info__caption {
+            font-style: italic;
+            font-weight: lighter;
+        }
+
+        .hide-link {
+            color: unset;
+            text-decoration: none;
+        }
+    </style>
+
+</head>
+
+<body>
+    <h2 id="header">Telegraph account page viewer</h2>
+    <div>
+        <label for="access_token">access_token:</label>
+        <input type="text" id="access_token" value="b968da509bb76866c35425099bc0989a5ec3b32997d55286c657e6994bbb">
+        <button onclick="reset_access_token()">Reset</button>
+    </div>
+    <div>
+        <button onclick="get_auth_url()">Get Auth URL</button>
+        <a id="auth_url"></a>
+    </div>
+    <div>
+        <button onclick="get_pages()">Get pages</button>
+        <label for="offset">Offest=</label>
+        <input type="number" id="offset" value="0" min="0" max="" placeholder="0 - total_count">
+        <label for="limit">Limit=</label>
+        <input type="number" id="limit" value="50" min="0" max="200" placeholder="0 - 200">
+        <input type="checkbox" id="thumbnails" checked>
+        <label for="thumbnails">Thumbnails</label>
+        <input type="checkbox" id="descriptions" checked>
+        <label for="descriptions">Descriptions</label>
+    </div>
+    <div>
+        <span>
+            Shown
+            <span id="first_page_id">0</span>
+            -
+            <span id="last_page_id">0</span>
+            out of
+            <span id="total_count">0</span></span>
+    </div>
+    <hr>
+    <div id="pages" class="page-list">
+
+    </div>
+    <a href="#header">Jump up</a>
+
+    <script id="page_pattern" type="text/html">
+        <div class="page">
+            <div class="page__title">
+                <a href={url}}><b>{title}</b></a>
+            </div>
+            <div class="page__info">
+                <div class="page__info__author_name">
+                    <b>author:</b> <a href={author_url}>{author_name}</a>
+                </div>
+                <div class="page__info__description">
+                    <b>description:</b> <span>{description}</span>
+                </div>
+                <div class="page__info__views">
+                    <b>views:</b> <span>{views}</span>
+                </div>
+            </div>
+            <a href={url}><img class="page__image" src={image_url} height="80"></a>
+            <hr>
+        </div>
+    </script>
+
+    <!-- <script src="/page_viewer.js"></script> -->
+    <script>
+        function reset_access_token() {
+            document.getElementById("access_token").value = "b968da509bb76866c35425099bc0989a5ec3b32997d55286c657e6994bbb";
+        }
+
+        var getJSON = function (url, callback) {
+
+            var xmlhttprequest = new XMLHttpRequest();
+            xmlhttprequest.open('GET', url, true);
+            xmlhttprequest.responseType = 'json';
+
+            xmlhttprequest.onload = function () {
+
+                var status = xmlhttprequest.status;
+
+                if (status == 200) {
+                    callback(null, xmlhttprequest.response);
+                } else {
+                    callback(status, xmlhttprequest.response);
+                }
+            };
+
+            xmlhttprequest.send();
+        };
+
+        function get_auth_url() {
+            let access_token = document.getElementById("access_token").value;
+            let req_url_auth_url = `https://api.telegra.ph/getAccountInfo?access_token=${access_token}&fields=["short_name", "auth_url"]`;
+
+            getJSON(req_url_auth_url, function (err, data) {
+                let auth_url = document.getElementById("auth_url")
+                if (err != null) {
+                    console.error(err);
+                } else {
+                    if (data['ok'] === false) {
+                        auth_url.innerText = "wrong access_token"
+                    } else {
+                        let url = data['result']['auth_url']
+                        let name = data['result']['short_name']
+                        auth_url.innerText = `${name}: ${url}`
+                        auth_url.setAttribute("href", url)
+                    }
+                }
+            });
+        }
+
+        var is_thumbnails_visible;
+        var is_descriptions_visible;
+
+        function get_pages() {
+            let access_token = document.getElementById("access_token").value;
+            let offset = parseInt(document.getElementById("offset").value);
+            let limit = parseInt(document.getElementById("limit").value);
+            is_thumbnails_visible = document.getElementById('thumbnails').checked;
+            is_descriptions_visible = document.getElementById('descriptions').checked
+            let req_url_get_page_list = `https://api.telegra.ph/getPageList?access_token=${access_token}&offset=${offset}&limit=${limit}`;
+            document.getElementById("pages").innerHTML = "";
+            getJSON(req_url_get_page_list, function (err, data) {
+                if (err != null) {
+                    console.error(err);
+                } else {
+                    if (data['ok'] === false) {
+                        document.getElementById("auth_url").innerText = "wrong access_token"
+                    }
+                    else {
+                        let total_count = data['result']['total_count'];
+                        document.getElementById("first_page_id").innerText = 1 + offset;
+                        document.getElementById("last_page_id").innerText = Math.min(offset + limit, total_count);
+                        document.getElementById("total_count").innerText = total_count;
+                        parse_page_list(data['result']['pages']);
+                    }
+                }
+            });
+        }
+
+        function parse_page_list(page_list) {
+            let pages = document.getElementById("pages")
+            page_list.forEach(function (element) {
+                document.getElementById("pages").appendChild(parse_page(element));
+            });
+        }
+
+        function parse_page(page_data) {
+            let element;
+            let chd_element
+
+            // page
+            let page = document.createElement('div');
+            page.setAttribute("class", "page");
+
+            // page__info
+            let page_info = document.createElement('div');
+            page_info.setAttribute('class', 'page__info');
+            element = document.createElement('span');
+
+            // info__title
+            element.setAttribute('class', 'page__header');
+            element.innerText = [page_data['title']];
+            page_info.appendChild(element)
+            let a_tag = document.createElement('a');
+            a_tag.setAttribute('href', page_data['url']);
+            a_tag.setAttribute('class', 'hide-link')
+            a_tag.appendChild(element);
+            page_info.appendChild(a_tag);
+
+            // info__author_name
+            if (page_data['author_name']) {
+                // author_name div 
+                element = document.createElement('div');
+                // author_name header
+                chd_element = document.createElement('span');
+                chd_element.setAttribute('class', 'info__header');
+                chd_element.innerText = "Author: ";
+                element.appendChild(chd_element);
+                // author_name caption
+                chd_element = document.createElement('span');
+                chd_element.setAttribute('class', 'info__caption');
+                chd_element.innerText = page_data['author_name'];
+                // author_url
+                if (page_data['author_url']) {
+                    let a_tag = document.createElement('a');
+                    a_tag.setAttribute('href', page_data['author_url']);
+                    a_tag.appendChild(chd_element);
+                    element.appendChild(a_tag);
+                } else {
+                    element.appendChild(chd_element);
+                }
+                page_info.appendChild(element);
+            }
+
+            // info__description
+            if (is_descriptions_visible && page_data['description']) {
+                // description div 
+                element = document.createElement('div');
+                // description header
+                chd_element = document.createElement('span');
+                chd_element.setAttribute('class', 'info__header');
+                chd_element.innerText = "Description: ";
+                element.appendChild(chd_element);
+                // description caption
+                chd_element = document.createElement('span');
+                chd_element.setAttribute('class', 'info__caption');
+                chd_element.innerHTML = page_data['description'];
+                element.appendChild(chd_element);
+                page_info.appendChild(element);
+            }
+
+            // info__views
+            // views div 
+            element = document.createElement('div');
+            // views header
+            chd_element = document.createElement('span');
+            chd_element.setAttribute('class', 'info__header');
+            chd_element.innerText = "Views: ";
+            element.appendChild(chd_element);
+            // views caption
+            chd_element = document.createElement('span');
+            chd_element.setAttribute('class', 'info__caption');
+            chd_element.innerText = page_data['views'];
+            element.appendChild(chd_element);
+            page_info.appendChild(element);
+
+            page.appendChild(page_info);
+
+            // page__image
+            if (is_thumbnails_visible && page_data['image_url']) {
+                image = document.createElement("img");
+                image.setAttribute('class', 'page__image');
+                image.setAttribute("src", page_data['image_url']);
+                // <a>image</a> 
+                element = document.createElement('a');
+                element.setAttribute('href', page_data['url']);
+                element.appendChild(image);
+                page.appendChild(element);
+            }
+
+            // page.appendChild(document.createElement('hr'));
+            return page;
+        };
+
+        function parse_page_from_pattern(page) {
+            let html_page;
+            html_page = document.createElement("div");
+            html_page.setAttribute("class", "page")
+            html_page.innerHTML = document.getElementById("page_pattern").innerHTML;
+            html_page.innerHTML = html_page.innerHTML
+                .replace(/{url}/g, page['url'])
+                .replace(/{title}/g, page['title'])
+                .replace(/{author_url}/g, page['author_url'])
+                .replace(/{author_name}/g, page['author_name'])
+                .replace(/{description}/g, page['description'])
+                .replace(/{views}/g, page['views'])
+                .replace(/{image_url}/g, page['image_url']);
+
+            return html_page;
+        };
+
+    </script>
+</body>
+
+</html>

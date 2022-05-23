@@ -63,6 +63,17 @@
             text-decoration: none;
         }
 
+        .text-button {
+            border: 1px solid;
+            margin: 0px 2px;
+            padding: 2px 6px;
+        }
+
+        .text-button:hover {
+            background: #3c3cdc;
+            color: #fff;
+        }
+
         @media (max-width: 479px) {
             .page-list {
                 margin: 0px;
@@ -88,35 +99,47 @@
             .info__caption {
                 font-size: 0.85em;
             }
-
-
         }
     </style>
 
 </head>
 
 <body>
-    <h2 id="header">Telegraph account page viewer</h2>
-    <div>
-        <label for="access_token">access_token:</label>
-        <input type="text" id="access_token" value="b968da509bb76866c35425099bc0989a5ec3b32997d55286c657e6994bbb">
-        <button onclick="reset_access_token()">Reset</button>
-    </div>
-    <div>
-        <button onclick="get_auth_url()">Get Auth URL</button>
-        <a id="auth_url"></a>
-    </div>
-    <div>
-        <button onclick="get_pages()" id="get_pages">Get pages</button>
-        <label for="offset">Offset=</label>
-        <input type="number" id="offset" value="0" min="0" max="" placeholder="0 - total_count">
-        <label for="limit">Limit=</label>
-        <input type="number" id="limit" value="50" min="0" max="200" placeholder="0 - 200">
-        <input type="checkbox" id="thumbnails" checked>
-        <label for="thumbnails">Thumbnails</label>
-        <input type="checkbox" id="descriptions" checked>
-        <label for="descriptions">Descriptions</label>
-    </div>
+    <a href="?">
+        <h2 id="header" class="hide-link">Telegraph account page viewer</h2>
+    </a>
+    <form action="">
+        <div>
+            <input type="hidden" name="dummy" value="d">
+
+            <label for="access_token">access_token:</label>
+            <input type="text" name="access_token" id="access_token"
+                value="b968da509bb76866c35425099bc0989a5ec3b32997d55286c657e6994bbb">
+            <input type="reset" value="Reset">
+            <!-- <button onclick="reset_access_token()">Reset</button> -->
+        </div>
+        <div>
+            <button onclick="get_auth_url(); return false;">Get Auth URL</button>
+            <a id="auth_url"></a>
+        </div>
+        <div>
+            <input type="submit" id="get_pages" value="Get pages">
+            <!-- <button onclick="//get_pages()" id="get_pages">Get pages</button> -->
+
+            <label for="offset">Offset=</label>
+            <input type="number" name="offset" id="offset" value="0" min="0" max="" placeholder="0 - total_count"
+                size="6">
+
+            <label for="limit">Limit=</label>
+            <input type="number" name="limit" id="limit" value="50" min="0" max="200" placeholder="0 - 200" size="6">
+
+            <input type="checkbox" id="thumbnails" oninput="save_checkboxes()">
+            <label for="thumbnails">Thumbnails</label>
+
+            <input type="checkbox" id="descriptions" oninput="save_checkboxes()">
+            <label for="descriptions">Descriptions</label>
+        </div>
+    </form>
     <div>
         <span>
             Shown
@@ -124,9 +147,22 @@
             -
             <span id="last_page_id">0</span>
             out of
-            <span id="total_count">0</span></span>
+            <span id="total_count">0</span>
+        </span>
     </div>
+
+    <div>
+        <a class="text-button hide-link" id="first_page">&lt;&lt;</a>
+        <a class="text-button hide-link" id="previous_page">&lt;</a>
+        <span id="page_counter">0/0</span>
+        <a class="text-button hide-link" id="next_page">&gt;</a>
+        <a class="text-button hide-link" id="last_page">&gt;&gt;</a>
+        <input type="text" name="page_id" id="page_id" placeholder="page">
+        <button onclick="go_to_page()">Go</button>
+    </div>
+
     <hr>
+
     <div id="pages" class="page-list">
     </div>
 
@@ -134,7 +170,7 @@
 
     <script id="page_pattern" type="text/html">
         <div class="page">
-            <div class="page__title">
+            <div class="page__title" >
                 <a href={url}}><b>{title}</b></a>
             </div>
             <div class="page__info">
@@ -155,25 +191,34 @@
 
     <!-- <script src="/page_viewer.js"></script> -->
     <script>
+
+        var is_thumbnails_visible, is_descriptions_visible;
+        var access_token, offset, limit, total_count;
+
+
         document.addEventListener("DOMContentLoaded", function () {
-            //....
+            load_checkboxes();
+
             params = new URLSearchParams(document.location.search);
-            if (params.get('access_token'))
-                document.getElementById('access_token').value = params.get('access_token');
-            if (params.get('offset'))
-                document.getElementById('offset').value = params.get('offset');
-            if (params.get('limit'))
-                document.getElementById('limit').value = params.get('limit');
-            if (params.get('thumbnails'))
-                document.getElementById('thumbnails').checked = (params.get('thumbnails') == 'true');
-            if (params.get('descriptions')) {
-                document.getElementById('descriptions').checked = (params.get('descriptions') == 'true');
-            }
+            if (params.get('access_token')) { document.getElementById('access_token').value = params.get('access_token'); }
+            if (params.get('offset')) { document.getElementById('offset').value = params.get('offset'); }
+            if (params.get('limit')) { document.getElementById('limit').value = params.get('limit'); }
+            // if (params.get('hide_thumbnails')) { document.getElementById('hide_thumbnails').checked = (params.get('hide_thumbnails') == 'on'); }
+            // if (params.get('hide_descriptions')) { document.getElementById('hide_descriptions').checked = (params.get('hide_descriptions') == 'on'); }
+
+            access_token = params.get('access_token')
+            offset = params.get('offset');
+            limit = params.get('limit');
+            is_thumbnails_visible = !(params.get('hide_thumbnails') == 'on');
+            is_descriptions_visible = !(params.get('hide_descriptions') == 'on');
+
+            // update_page_navigation();
+            render_pages();
         });
 
-        function reset_access_token() {
-            document.getElementById("access_token").value = "b968da509bb76866c35425099bc0989a5ec3b32997d55286c657e6994bbb";
-        }
+        // function reset_access_token() {
+        //     document.getElementById("access_token").value = "b968da509bb76866c35425099bc0989a5ec3b32997d55286c657e6994bbb";
+        // }
 
         var getJSON = function (url, callback) {
 
@@ -216,13 +261,10 @@
             });
         }
 
-        var is_thumbnails_visible;
-        var is_descriptions_visible;
-
-        function get_pages() {
-            let access_token = document.getElementById("access_token").value;
-            let offset = parseInt(document.getElementById("offset").value);
-            let limit = parseInt(document.getElementById("limit").value);
+        function render_pages() {
+            access_token = document.getElementById("access_token").value;
+            offset = parseInt(document.getElementById("offset").value);
+            limit = parseInt(document.getElementById("limit").value);
             is_thumbnails_visible = document.getElementById('thumbnails').checked;
             is_descriptions_visible = document.getElementById('descriptions').checked
             let req_url_get_page_list = `https://api.telegra.ph/getPageList?access_token=${access_token}&offset=${offset}&limit=${limit}`;
@@ -236,7 +278,8 @@
                         document.getElementById("auth_url").innerText = "wrong access_token"
                     }
                     else {
-                        let total_count = data['result']['total_count'];
+                        total_count = data['result']['total_count'];
+                        update_page_navigation();
                         document.getElementById("first_page_id").innerText = 1 + offset;
                         document.getElementById("last_page_id").innerText = Math.min(offset + limit, total_count);
                         document.getElementById("total_count").innerText = total_count;
@@ -369,6 +412,59 @@
 
             return html_page;
         };
+
+
+        function update_page_navigation() {
+            var url_template = '?dummy=d&access_token={access_token}&offset={offset}&limit={limit}';
+            let total_pages = Math.floor(total_count / limit);
+            // alert(total_count + ' ' + limit + ' ' + total_pages);
+            let current_page = Math.ceil((offset + 1) / limit);
+            document.getElementById('page_counter').innerText = current_page + '/' + total_pages
+
+            url_template = url_template
+                .replace(/{access_token}/g, access_token)
+                .replace(/{limit}/g, limit);
+
+            let last_page_offset = total_count / limit;
+            if (last_page_offset % 1 == 0) { last_page_offset = (total_pages - 1) * limit; }
+            else { last_page_offset = total_pages * limit; }
+
+            document.getElementById('first_page').setAttribute('href'
+                , url_template.replace(/{offset}/g, 0));
+            document.getElementById('previous_page').setAttribute('href'
+                , url_template.replace(/{offset}/g, offset - limit));
+            document.getElementById('next_page').setAttribute('href'
+                , url_template.replace(/{offset}/g, offset + limit));
+            document.getElementById('last_page').setAttribute('href'
+                , url_template.replace(/{offset}/g, last_page_offset));
+
+            console.log(url_template.replace(/{offset}/g, 0));
+            console.log(url_template.replace(/{offset}/g, offset - limit));
+            console.log(url_template.replace(/{offset}/g, offset + limit));
+            console.log(url_template.replace(/{offset}/g, last_page_offset));
+        }
+
+        function go_to_page() {
+            var url_template = '?dummy=d&access_token={access_token}&offset={offset}&limit={limit}';
+            window.location.href = url_template
+                .replace(/{access_token}/g, access_token)
+                .replace(/{limit}/g, limit)
+                .replace(/{offset}/g, parseInt(document.getElementById('page_id').value - 1) * limit);
+        }
+
+        function save_checkboxes() {
+            localStorage.setItem('thumbnails',
+                document.getElementById('thumbnails').checked);
+            localStorage.setItem('descriptions',
+                document.getElementById('descriptions').checked);
+        }
+
+        function load_checkboxes() {
+            document.getElementById('thumbnails').checked =
+                (['true', null].includes(localStorage.getItem('thumbnails')));
+            document.getElementById('descriptions').checked =
+                (['true', null].includes(localStorage.getItem('descriptions')));
+        }
 
     </script>
 </body>

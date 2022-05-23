@@ -9,7 +9,6 @@
     <!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script> -->
 
     <style>
-
         .page-list {
             padding: 0;
             margin: 3px;
@@ -24,25 +23,23 @@
             margin: 2px;
         }
 
-        @media (max-width: 479px) {
-            .page {
-                flex-wrap: wrap;
-            }
-        }
-
         .page__info {
             display: flex;
             flex-direction: column;
-            /* background-color: aqua; */
             max-width: 100%;
+            /* max-height: 100%; */
+        }
+
+        .image-container {
+            display: flex;
+            justify-content: center;
         }
 
         .page__image {
+            background-color: gray;
             max-height: 120px;
             max-width: 200px;
             margin: 3px;
-            object-fit: contain;
-            align-self: flex-end;
         }
 
         .page__header {
@@ -65,6 +62,35 @@
             color: unset;
             text-decoration: none;
         }
+
+        @media (max-width: 479px) {
+            .page-list {
+                margin: 0px;
+            }
+
+            .page {
+                /* flex-wrap: wrap; */
+                flex-flow: wrap;
+                border-width: 1px;
+            }
+
+            .page__header {
+                font-size: 1.0em;
+            }
+
+            .image-container {}
+
+            .page__image {
+                max-width: 100%;
+            }
+
+            .info__header,
+            .info__caption {
+                font-size: 0.85em;
+            }
+
+
+        }
     </style>
 
 </head>
@@ -81,8 +107,8 @@
         <a id="auth_url"></a>
     </div>
     <div>
-        <button onclick="get_pages()">Get pages</button>
-        <label for="offset">Offest=</label>
+        <button onclick="get_pages()" id="get_pages">Get pages</button>
+        <label for="offset">Offset=</label>
         <input type="number" id="offset" value="0" min="0" max="" placeholder="0 - total_count">
         <label for="limit">Limit=</label>
         <input type="number" id="limit" value="50" min="0" max="200" placeholder="0 - 200">
@@ -102,8 +128,8 @@
     </div>
     <hr>
     <div id="pages" class="page-list">
-
     </div>
+
     <a href="#header">Jump up</a>
 
     <script id="page_pattern" type="text/html">
@@ -129,6 +155,22 @@
 
     <!-- <script src="/page_viewer.js"></script> -->
     <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            //....
+            params = new URLSearchParams(document.location.search);
+            if (params.get('access_token'))
+                document.getElementById('access_token').value = params.get('access_token');
+            if (params.get('offset'))
+                document.getElementById('offset').value = params.get('offset');
+            if (params.get('limit'))
+                document.getElementById('limit').value = params.get('limit');
+            if (params.get('thumbnails'))
+                document.getElementById('thumbnails').checked = (params.get('thumbnails') == 'true');
+            if (params.get('descriptions')) {
+                document.getElementById('descriptions').checked = (params.get('descriptions') == 'true');
+            }
+        });
+
         function reset_access_token() {
             document.getElementById("access_token").value = "b968da509bb76866c35425099bc0989a5ec3b32997d55286c657e6994bbb";
         }
@@ -185,6 +227,7 @@
             is_descriptions_visible = document.getElementById('descriptions').checked
             let req_url_get_page_list = `https://api.telegra.ph/getPageList?access_token=${access_token}&offset=${offset}&limit=${limit}`;
             document.getElementById("pages").innerHTML = "";
+            document.getElementById('get_pages').disabled = true;
             getJSON(req_url_get_page_list, function (err, data) {
                 if (err != null) {
                     console.error(err);
@@ -200,6 +243,7 @@
                         parse_page_list(data['result']['pages']);
                     }
                 }
+                document.getElementById('get_pages').disabled = false;
             });
         }
 
@@ -300,6 +344,7 @@
                 // <a>image</a> 
                 element = document.createElement('a');
                 element.setAttribute('href', page_data['url']);
+                element.setAttribute('class', 'image-container')
                 element.appendChild(image);
                 page.appendChild(element);
             }

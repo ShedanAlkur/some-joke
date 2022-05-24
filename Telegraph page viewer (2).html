@@ -144,12 +144,14 @@
 
         <label for="offset">
             Offset=
-            <input type="number" name="offset" id="offset" value="0" min="0" placeholder="0 - max" size="6">
+            <input type="number" name="offset" id="offset" value="0" min="0" placeholder="0 - max" size="6"
+                onchange="validate(this)">
         </label>
 
         <label for="limit">
             Limit=
-            <input type="number" name="limit" id="limit" value="50" min="0" max="200" placeholder="0 - 200" size="6">
+            <input type="number" name="limit" id="limit" value="50" min="0" max="200" placeholder="0 - 200" size="6"
+                onchange="validate(this)">
         </label>
 
         <label for="thumbnails">
@@ -179,7 +181,7 @@
         <span id="current-page">0</span> / <span id="total-pages">0</span>
         <span class="text-button hide-link" id="next-page">&gt;</span>
         <span class="text-button hide-link" id="last-page">&gt;&gt;</span>
-        <input type="number" name="page-id" id="page-id" placeholder="page" min="1" size="6">
+        <input type="number" name="page-id" id="page-id" placeholder="page" min="1" size="6" onchange="validate(this)">
         <button onclick="goToPage()">Go</button>
     </div>
 
@@ -402,7 +404,7 @@
         function _updatePageCounters(totalArticles) {
 
             hFirstAricle.innerText = hOffset.value - 0 + 1;
-            hLastAricle.innerText = Math.min(totalArticles, hOffset.value + hLimit.value);
+            hLastAricle.innerText = Math.min(totalArticles, parseInt(hOffset.value) + parseInt(hLimit.value));
             hTotalArticles.innerText = totalArticles;
 
             hCurrentPage.innerText = Math.ceil((hOffset.value - 0 + 1) / hLimit.value);
@@ -454,6 +456,13 @@
             showPages();
         });
 
+        function validate(element) {
+            if (element.max && element.value > element.max) {
+                element.value = element.max;
+            } else if (element.min && element.value < element.min) {
+                element.value = element.min;
+            }
+        }
     </script>
 </body>
 
